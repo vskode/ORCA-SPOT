@@ -13,6 +13,7 @@ import math
 import resampy
 import numpy as np
 import scipy.fftpack
+import librosa as lb
 import soundfile as sf
 
 import torch
@@ -25,8 +26,15 @@ from utils.FileIO import AsyncFileReader, AsyncFileWriter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 """ Load audio file  """
-def load_audio_file(file_name, sr=None, mono=True):
-    y, sr_orig = sf.read(file_name, always_2d=True, dtype="float32")
+def load_audio_file(file_name, offset = 0, 
+                    audio_len = None, 
+                    sr=None, mono=True):
+    # y, sr_orig = sf.read(file_name, always_2d=True, 
+    #                      start = offset*sr, dtype="float32")
+    y, sr_orig = lb.load(file_name, sr = sr, 
+                        offset = offset,
+                        duration = audio_len)
+    y = np.array([y]).T
     if mono and y.ndim == 2 and y.shape[1] > 1:
         y = np.mean(y, axis=1, keepdims=True)
     if sr is not None and sr != sr_orig:

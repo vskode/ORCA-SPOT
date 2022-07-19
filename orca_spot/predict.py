@@ -7,7 +7,7 @@ License: GNU General Public License v3.0
 Institution: Friedrich-Alexander-University Erlangen-Nuremberg, Department of Computer Science, Pattern Recognition Lab
 Last Access: 26.04.2022
 """
-
+#%%
 import argparse
 
 import torch
@@ -19,7 +19,7 @@ from collections import OrderedDict
 from models.classifier import DefaultClassifierOpts, Classifier
 from data.audiodataset import DefaultSpecDatasetOps, StridedAudioDataset
 from models.residual_encoder import DefaultEncoderOpts, ResidualEncoder as Encoder
-
+#%%
 parser = argparse.ArgumentParser()
 
 parser.add_argument(

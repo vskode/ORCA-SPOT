@@ -668,13 +668,31 @@ class StridedAudioDataset(torch.utils.data.Dataset):
         freq_compression: str = "linear",
         f_min: int = 200,
         f_max: int = 18000,
-        min_max_normalize=False
+        offset = None,
+        min_max_normalize=False,
+        audio_len = None,
+        annotations = None,
+        x_test = None,
+        x_noise = None
     ):
+        self.offset = offset
+        self.sr = sr
         self.sequence_len = sequence_len
         self.hop = hop
+        self.audio_len = audio_len
+        self.annotations = annotations
+        self.get_noise = False
 
-        self.audio = T.load_audio_file(file_name, sr=sr, mono=True)
-        self.n_frames = self.audio.shape[1]
+        if x_test is not None:
+            self.x_test = x_test
+            self.x_noise = x_noise
+            self.audio = x_test
+            self.n_frames = len(x_test)
+        else:
+            self.audio = T.load_audio_file(file_name, offset = self.offset, 
+                                        audio_len = self.audio_len, 
+                                        sr=sr, mono=True)
+            self.n_frames = self.audio.shape[1]
 
         self.t = [
             T.PreEmphasize(DefaultSpecDatasetOps["preemphases"]),
@@ -703,18 +721,48 @@ class StridedAudioDataset(torch.utils.data.Dataset):
             )
 
         self.t = T.Compose(self.t)
+        
+    def get_data(self, x_test, x_noise):
+        self.x_test = x_test
+        self.x_noise = x_noise
+        
 
 
     def __len__(self):
-        return max(int(ceil((self.n_frames + 1 - self.sequence_len) / self.hop)), 1)
+        if self.annotations is not None:
+            if self.get_noise and len(self.x_noise)>0:
+                return len(self.x_noise)
+            else:
+                return len(self.x_test)
+        else:
+            return max(int(ceil((self.n_frames + 1 - self.sequence_len) / self.hop)), 1)
 
     """
     Extracts signal part according to the current and respective position of the given audio file.
     """
     def __getitem__(self, idx):
-        start = idx * self.hop
-        end = min(start + self.sequence_len, self.n_frames)
-        y = self.audio[:, start:end]
+        if self.x_test is not None:
+            if self.get_noise and len(self.x_noise)>0:
+                y = torch.from_numpy(np.array([self.x_noise[idx]]))
+                return self.t(y)
+            else:
+                y = torch.from_numpy(np.array([self.x_test[idx]]))
+                return self.t(y)
+        
+        if self.annotations is not None:
+            if idx < len(self.annotations):
+                row = self.annotations.iloc[idx]
+                beg = int((row.start - self.offset)*self.sr)
+                end = int((row.start - self.offset)*self.sr + self.sequence_len)
+                y = self.audio[:, beg:end]
+            if idx == len(self.annotations) or len(y[0]) != self.sequence_len:
+                end = len(self.audio[0])
+                beg = end - self.sequence_len
+                y = self.audio[:, beg:end]
+        else:
+            start = idx * self.hop
+            end = min(start + self.sequence_len, self.n_frames)
+            y = self.audio[:, start:end]
         return self.t(y)
 
     def __delete__(self):
